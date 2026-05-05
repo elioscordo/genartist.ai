@@ -12,3 +12,4 @@ moviepy
 sqlalchemy
 django-modeladmin-reorder
 django-unfold
+django-allauth

@@ -97,10 +97,57 @@ class ImgShowMixin:
         return "No contents"
     
     def voice_player(self, obj):
-        if obj.voice:
+        if obj.audio_voice:
             return format_html('''
         <audio controls>
             <source src="{}" type="audio/mpeg">
         </audio>
-        ''', obj.voice.url)
+        ''', obj.audio_voice.url)
         return "No contents"
+
+class SceneFilterMixin:
+    # anything that has a scene foreign key can use this mixin to filter by the user's current scene
+
+    def save_model(self, request, obj, form, change):
+        if obj.scene is None and request.user.story_profile.scene:
+            obj.scene = request.user.story_user.scene
+        save_obj = super().save_model(request, obj, form, change)
+        return save_obj
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request) #call original queryset method that you are overriding
+        if request.user.story_profile.enable_filters:
+            if request.user.story_profile.scene:
+                return qs.filter(scene=request.user.story_profile.scene)
+            return qs.filter(scene__story=request.user.story_profile.get_current_story())
+        return qs
+
+class StoryFilterMixin:
+    # anything that has a story foreign key can use this mixin to filter by the user's current scene
+    
+    def save_model(self, request, obj, form, change):
+        if obj.story is None:
+            obj.story = request.user.story_profile.get_current_story()
+        save_obj = super().save_model(request, obj, form, change)
+        return save_obj
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request) #call original queryset method that you are overriding
+        profile = request.user.story_profile
+        if profile.enable_filters:
+            return qs.filter(story=profile.get_current_story())
+        return qs
+
+class StaffReadOnlyMixin:
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+        if not request.user.is_superuser:
+            readonly_fields.extend(self.staff_readonly_fields)         
+        return readonly_fields
+
+class ViewYourOwnMixin:
+    def get_queryset(self, request):
+        qs = super().get_queryset(request) #call original queryset method that you are overriding
+        if not request.user.is_superuser:
+            return qs.filter(user=request.user)
+        return qs

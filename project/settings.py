@@ -52,7 +52,7 @@ INSTALLED_APPS = [
     'agent',
     'task',
     'rangefilter',
-    'game'
+    'brainrain'
 ]
 
 MIDDLEWARE = [
@@ -92,7 +92,10 @@ def token_usage_link(request):
     return "/admin/agent/tokenusage/"
 
 def storyprofile(request):
+    if hasattr(request.user, 'story_profile'):
+        return f"/admin/scene/storyprofile/{request.user.story_profile.id}/change/"
     return "/admin/scene/storyprofile/"
+
 from django.templatetags.static import static
 
 UNFOLD = {
@@ -101,6 +104,7 @@ UNFOLD = {
     "SITE_SUBHEADER": "Tell me a story",
     "STYLES": [
         lambda request: static("css/unfold_filer_custom.css"),
+        lambda request: static("css/custom.css"),
     ],
     "ACCOUNT": {
         "navigation": [
@@ -122,13 +126,34 @@ UNFOLD = {
         "show_search": False,              # Search in application/model names
         "command_search": False,           # Use command palette for search
         "show_all_applications": True,
-        
+        "FORMS": {
+            "classes": {
+                "text_input": "",
+                "button": "",
+            }
+        },
         "navigation": [
             {
-                "title": "Elements",
+                "title": "Brainstorming",
                 "separator": True,
                 "items": [
                     {
+                        "title": "Cowriting Sessions",
+                        "icon": "dashboard",
+                        "link": reverse_lazy("admin:brainrain_gamesession_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": "Storytelling",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Stories",
+                        "icon": "dashboard",
+                        "link": reverse_lazy("admin:scene_story_changelist"),
+                    },
+                                {
                         "title": "Elements",
                         "icon": "dashboard",
                         "link": reverse_lazy("admin:scene_prop_changelist"),
@@ -144,17 +169,6 @@ UNFOLD = {
                         "link": reverse_lazy("admin:scene_background_changelist"),
                     },
 
-                ],
-            },
-            {
-                "title": "Storytelling",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Stories",
-                        "icon": "dashboard",
-                        "link": reverse_lazy("admin:scene_story_changelist"),
-                    },
                     {
                         "title": "Scenes",
                         "icon": "dashboard",
@@ -212,6 +226,7 @@ DATABASES = {
     }
 }
 
+SITE_URL = "http://localhost:8000"
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -274,9 +289,6 @@ TASK_TYPE_GENERATE_COMIC = 'generate_comic'
 TASK_TYPE_GENERATE_SCENE_VIDEO = 'generate_scene_video'
 TASK_TYPE_GENERATE_VOICE = 'generate_voice'
 
-
-
-
 TASK_DELEGATES = {
     TASK_TYPE_GENERATE_IMAGE: 'scene.tasks.TaskGenerateImage',
     TASK_TYPE_REFINE_IMAGE: 'scene.tasks.TaskRefineImage',
@@ -296,3 +308,13 @@ TASK_TYPE_CHOICES = (
     (TASK_TYPE_GENERATE_SCENE_VIDEO, "Generate Scene Video"),
     (TASK_TYPE_GENERATE_VOICE, "Generate Voice"),
 )
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER") 
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = os.getenv("EMAIL_HOST_USER")
+SITE_URL= os.getenv("SITE_URL", "http://localhost:8000")

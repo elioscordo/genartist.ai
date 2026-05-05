@@ -1,0 +1,14 @@
+.data-row .field-my_prompt, .data-row .field-pic, .data-row .field-prompt , .data-row .field-prompt_refine {
+    height: fit-content;
+    flex-direction: column;
+    align-items: end;
+    line-height: 20px;
+    align-content: flex-e
+}
+
+.result-list a, .data-row a  {
+    text-decoration: underline;
+}
+.markdown h1 {
+    font-weight: bold; 
+}
