@@ -28,12 +28,15 @@ MEDIA_URL = '/media/'
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-b=hd+m7!^(i0zc)5_!lvym@#k@9oa-y0zk(=)q-0=0%bjsyn9u'
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+
+
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['178.238.234.86', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -296,3 +299,17 @@ TASK_TYPE_CHOICES = (
     (TASK_TYPE_GENERATE_SCENE_VIDEO, "Generate Scene Video"),
     (TASK_TYPE_GENERATE_VOICE, "Generate Voice"),
 )
+
+
+
+# --- Configuración de archivos estáticos ---
+import os
+STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+
+DEBUG = False
+
+ALLOWED_HOSTS = ['178.238.234.86']
+
+
