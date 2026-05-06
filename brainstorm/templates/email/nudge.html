@@ -32,22 +32,27 @@
 <body>
     <div class="wrapper">
         <div class="header">
-            <h1>Brainstorming Game</h1>
+            <h1>Brainstorming Session {{item.session.game.name}}. It is your turn!</h1>
         </div>
         <div class="body">
-            <div class="greeting">Welcome to the session, {{ user_name }}!</div>
-            <p class="text">You have been invited to participate in a new brainstorming challenge. Access your player account using the secure credentials below.</p>
+            <div class="greeting">Hello {{receiver.username}}.</div>
+            <p class="text">{{item.sender.message}} sent you a nudge!</p>
+            <p class="text">{{item.message}}</p>
             
+            <p class="text"> Theme: {{ item.session.theme.name }}</p>
+            <p class="text"> Description: {{ item.session.theme.prompt }}</p>
+            
+
+            {% if item.session.turns.all %}
             <div class="auth-card">
+                {% for turn in item.session.turns.all %}
                 <div class="field">
-                    <div class="label">Player Username</div>
-                    <div class="value">{{ user.username }}</div>
+                    <div class="label">{{ turn.player.username }}</div>
+                    <div class="value">{{ turn.prompt }}</div>
                 </div>
-                <div class="field">
-                    <div class="label">Temporary Password</div>
-                    <div class="value">{{ password }}</div>
-                </div>
+                {% endfor %}
             </div>
+            {% endif %}
 
             <a href="{{ login_url }}" class="btn">Launch Game Dashboard</a>
         </div>

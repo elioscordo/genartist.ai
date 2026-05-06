@@ -52,7 +52,7 @@ INSTALLED_APPS = [
     'agent',
     'task',
     'rangefilter',
-    'brainrain'
+    'brainstorm'
 ]
 
 MIDDLEWARE = [
@@ -134,13 +134,23 @@ UNFOLD = {
         },
         "navigation": [
             {
-                "title": "Brainstorming",
+                "title": "Cowriting",
                 "separator": True,
                 "items": [
                     {
-                        "title": "Cowriting Sessions",
+                        "title": "Sessions",
                         "icon": "dashboard",
-                        "link": reverse_lazy("admin:brainrain_gamesession_changelist"),
+                        "link": reverse_lazy("admin:brainstorm_session_changelist"),
+                    },
+                    {
+                        "title": "Themes",
+                        "icon": "dashboard",
+                        "link": reverse_lazy("admin:brainstorm_theme_changelist"),
+                    },
+                    {
+                        "title": "Groups",
+                        "icon": "dashboard",
+                        "link": reverse_lazy("admin:scene_storygroup_changelist"),
                     },
                 ],
             },

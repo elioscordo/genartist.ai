@@ -93,8 +93,8 @@
                 {% trans "No data" %}
             </p>
         {% endif %}
-        <p class="bg-white border border-base-200 flex grow items-center justify-center py-2 rounded-default shadow-xs dark:bg-base-900 lg:border-0 lg:rounded-none lg:shadow-none">
-                It is your turn to brainstorm! <a href="/admin/brainrain/turn/add/?player={{ player.id }}&session={{ session.id }}&turn_type={{ session.turn_type }}" class="btn btn-primary">Add a new turn to get started.</a>
+        <p class="mt-2 bg-white border border-base-200 flex grow items-center justify-center py-2 rounded-default shadow-xs dark:bg-base-900 lg:border-0 lg:rounded-none lg:shadow-none">
+                <a href="/admin/brainrain/turn/add/?player={{ player.id }}&session={{ session.id }}&turn_type={{ session.turn_type }}" class="btn btn-primary">Add Your {{session.turn_type|capfirst}}</a>
             </p>
     </div>
 </div>

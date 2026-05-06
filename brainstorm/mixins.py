@@ -6,8 +6,21 @@ from django.conf import settings
 import secrets
 import string
 
+class EmailSenderMixin: 
+    
+    def send_email(self, subject,  context, recipient_list):
+        html_message = render_to_string(self.email_template, context)
+        plain_message = strip_tags(html_message)
+        send_mail(
+            subject,
+            plain_message,
+            settings.DEFAULT_FROM_EMAIL,
+            recipient_list,
+            html_message=html_message
+        )
 
 class UserCreatorMixin:
+
     def create_users(self, email, obj):
         username = email.split('@')[0]
         # 1. Generate a secure random string

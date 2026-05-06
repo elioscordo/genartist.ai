@@ -198,7 +198,7 @@ class StoryProfile(models.Model):
     story = models.ForeignKey(Story, related_name='story_profiles', on_delete=models.SET_NULL, null=True, blank=True)
     scene = models.ForeignKey(Scene, related_name='story_profiles', on_delete=models.SET_NULL, null=True, blank=True)
     group = models.ForeignKey(StoryGroup, related_name='story_profiles', on_delete=models.SET_NULL, null=True, blank=True)
-    enable_filters = models.BooleanField(default=False)
+    enable_filters = models.BooleanField(default=True)
 
     def __str__(self):
         return "{}".format(self.user.username)
