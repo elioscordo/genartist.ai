@@ -1,6 +1,6 @@
 from django.db import models
 from django.conf import settings
-from agent.models import Agent
+from agent.models import Agent, Voice
 from filer.fields.image import FilerImageField, FilerFileField
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -33,22 +33,22 @@ class Prop(models.Model, GetContentsMixin, TaskHolder):
 
     # trick to save and execute tasks
     TASK_TYPE_CHOICES = settings.TASK_TYPE_CHOICES
-    exec_on_save = models.SlugField(choices=settings.TASK_TYPE_CHOICES, null=True, blank=True)
+    action = models.SlugField(choices=settings.TASK_TYPE_CHOICES, null=True, blank=True)
 
     class Meta:
         verbose_name = 'Element'
         verbose_name_plural = 'Elements'
 
     def save(self, *args, **kwargs):
-        print("Saving background, checking for exec_on_save task: {}".format(self.exec_on_save))
-        exec_on_save = getattr(self, 'exec_on_save', None)
-        if exec_on_save is not None:
-            self.exec_on_save = None
+        print("Saving background, checking for action task: {}".format(self.action))
+        action = getattr(self, 'action', None)
+        if action is not None:
+            self.action = None
         super().save(*args, **kwargs)
-        if exec_on_save is not None: 
+        if action is not None: 
             Task.createTaskIfQueueEnabled(
                     subject=self,
-                    task_type=exec_on_save
+                    task_type=action
                 )
    
     def __str__(self):
@@ -73,19 +73,20 @@ class Character(models.Model, GetContentsMixin, TaskHolder):
     prompt= models.TextField(null=True, blank=True)
     prompt_refine = models.TextField(null=True, blank=True)
     story = models.ForeignKey('Story', related_name='characters', null=True, blank=True, on_delete=models.CASCADE)
+    voice = models.ForeignKey(Voice, related_name='characters', on_delete=models.SET_NULL, null=True, blank=True) 
 
     TASK_TYPE_CHOICES = settings.TASK_TYPE_CHOICES
-    exec_on_save = models.SlugField(choices=settings.TASK_TYPE_CHOICES, null=True, blank=True)
+    action = models.SlugField(choices=settings.TASK_TYPE_CHOICES, null=True, blank=True)
 
     def save(self, *args, **kwargs):
-        exec_on_save = getattr(self, 'exec_on_save', None)
-        if exec_on_save is not None:
-            self.exec_on_save = None
+        action = getattr(self, 'action', None)
+        if action is not None:
+            self.action = None
         super().save(*args, **kwargs)
-        if exec_on_save is not None: 
+        if action is not None: 
             Task.createTaskIfQueueEnabled(
                     subject=self,
-                    task_type=exec_on_save
+                    task_type=action
                 )
    
     def __str__(self):
@@ -118,22 +119,22 @@ class Background(models.Model, GetContentsMixin, TaskHolder):
     story = models.ForeignKey('Story', related_name='backgrounds', null=True, blank=True, on_delete=models.CASCADE)
 
     TASK_TYPE_CHOICES = settings.TASK_TYPE_CHOICES
-    exec_on_save = models.SlugField(choices=settings.TASK_TYPE_CHOICES, null=True, blank=True)
+    action = models.SlugField(choices=settings.TASK_TYPE_CHOICES, null=True, blank=True)
 
 
     def __str__(self):
         return "{}".format(self.name)
 
     def save(self, *args, **kwargs):
-        print("Saving background, checking for exec_on_save task: {}".format(self.exec_on_save))
-        exec_on_save = getattr(self, 'exec_on_save', None)
-        if exec_on_save is not None:
-            self.exec_on_save = None
+        print("Saving background, checking for action task: {}".format(self.action))
+        action = getattr(self, 'action', None)
+        if action is not None:
+            self.action = None
         super().save(*args, **kwargs)
-        if exec_on_save is not None: 
+        if action is not None: 
             Task.createTaskIfQueueEnabled(
                     subject=self,
-                    task_type=exec_on_save
+                    task_type=action
                 )
 
     def context_text(self, generate_self=True, preset=None):
@@ -159,7 +160,8 @@ class Scene(models.Model):
     prompt = models.TextField(null=True, blank=True)
     order = models.PositiveIntegerField(default=0, db_index=True)
     story = models.ForeignKey('Story', related_name='scenes', null=True, blank=True, on_delete=models.CASCADE)
-
+    voice = models.ForeignKey(Voice, related_name='scenes', on_delete=models.SET_NULL, null=True, blank=True) 
+    
     def __str__(self):
         return "{}".format(self.name)
 
@@ -182,17 +184,32 @@ class Story(models.Model, GetContentsMixin, TaskHolder):
         return "{}".format(self.name)
 
 
+class StoryGroup(models.Model):
+    story = models.ForeignKey(Story, related_name='story_groups', on_delete=models.SET_NULL, null=True, blank=True)
+    name = models.CharField(max_length=200)
+    users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='story_groups')
+    
+    def __str__(self):
+        return "{}".format(self.name)
 
 
-class StoryProfile(models.Model, GetContentsMixin, TaskHolder):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='profile', on_delete=models.CASCADE)
+class StoryProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='story_profile', on_delete=models.CASCADE)
     story = models.ForeignKey(Story, related_name='story_profiles', on_delete=models.SET_NULL, null=True, blank=True)
     scene = models.ForeignKey(Scene, related_name='story_profiles', on_delete=models.SET_NULL, null=True, blank=True)
-    enable_filters = models.BooleanField(default=False)
+    group = models.ForeignKey(StoryGroup, related_name='story_profiles', on_delete=models.SET_NULL, null=True, blank=True)
+    enable_filters = models.BooleanField(default=True)
 
     def __str__(self):
-        return "{}".format(self.id)
+        return "{}".format(self.user.username)
 
+    def get_current_story(self):
+        story = None
+        if self.story:
+            story = self.story
+        if self.group and self.group.story:
+            story = self.group.story
+        return story
 
 class Action(models.Model, GetContentsMixin, TaskHolder):
     name = models.CharField(max_length=200, default="Action")
@@ -214,12 +231,12 @@ class Action(models.Model, GetContentsMixin, TaskHolder):
     prompt_video = models.TextField(null=True, blank=True)
 
     TASK_TYPE_CHOICES = settings.TASK_TYPE_CHOICES
-    exec_on_save = models.SlugField(choices=settings.TASK_TYPE_CHOICES, null=True, blank=True)
+    action = models.SlugField(choices=settings.TASK_TYPE_CHOICES, null=True, blank=True)
 
     prompt_comic = models.TextField(null=True, blank=True)
     image_comic = FilerImageField(null=True, blank=True, on_delete=models.SET_NULL, related_name='actions_comic')
 
-    voice = FilerFileField(null=True, blank=True, on_delete=models.SET_NULL, related_name='actions_audio')
+    audio_voice = FilerFileField(null=True, blank=True, on_delete=models.SET_NULL, related_name='actions_audio')
     prompt_voice = models.TextField(null=True, blank=True)
 
     def __str__(self):
@@ -262,6 +279,7 @@ class Action(models.Model, GetContentsMixin, TaskHolder):
         elif preset == self.PRESET_VOICE:
             contents = {}
             contents['prompt'] = self.prompt_voice
+            contents['voice'] = self.actor.voice if self.actor and self.actor.voice else self.scene.voice if self.scene and self.scene.voice else None
         else:
             # preset refine is handled in the mixin
             contents = super().get_contents(generate_self=generate_self, preset=preset)
@@ -292,15 +310,15 @@ class Action(models.Model, GetContentsMixin, TaskHolder):
         return self.prompt
     
     def save(self, *args, **kwargs):
-        print("Saving background, checking for exec_on_save task: {}".format(self.exec_on_save))
-        exec_on_save = getattr(self, 'exec_on_save', None)
-        if exec_on_save is not None:
-            self.exec_on_save = None
+        print("Saving background, checking for action task: {}".format(self.action))
+        action = getattr(self, 'action', None)
+        if action is not None:
+            self.action = None
         super().save(*args, **kwargs)
-        if exec_on_save is not None: 
+        if action is not None: 
             Task.createTaskIfQueueEnabled(
                     subject=self,
-                    task_type=exec_on_save
+                    task_type=action
                 )
 
 class VideoAction(Action):

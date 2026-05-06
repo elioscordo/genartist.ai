@@ -25,6 +25,9 @@ class GetContentsMixin:
     PRESET_VIDEO_FIRST_LAST = "video_first_last"
     PRESET_COMIC = "comic"
     PRESET_VOICE = "voice"
+    PRESET_CHARACTER = "character"
+    PRESET_WRITER = "writer"
+    
 
     def get_contents(self, generate_self=True, preset=None):
          # remove generate self and add preset regenerate_image
@@ -157,7 +160,7 @@ class Agent(models.Model):
                 speech_config=types.SpeechConfig(
                     voice_config=types.VoiceConfig(
                         prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name='Kore',
+                        voice_name=contents['voice'],
                         )
                     )
                 ),
@@ -280,6 +283,9 @@ class Prompt(models.Model):
         (GetContentsMixin.PRESET_VIDEO, "Video"),
         (GetContentsMixin.PRESET_VIDEO_FIRST_LAST, "Video First Last"),
         (GetContentsMixin.PRESET_COMIC, "Comic"),
+        (GetContentsMixin.PRESET_WRITER, "Writer"),
+        (GetContentsMixin.PRESET_CHARACTER, "Character"),
+        
     )
     name= models.CharField(max_length=100, default="name")
     prompt = models.TextField(null=True, blank=True)
@@ -317,3 +323,13 @@ class AgentProfile(models.Model):
         verbose_name = 'AI User Profile'
         verbose_name_plural = 'AI User Profiles'
 
+class ChatMessage(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, related_name='chat_messages', on_delete=models.CASCADE)
+    agent = models.ForeignKey(Agent, null=True, blank=True, related_name='chat_messages', on_delete=models.CASCADE)
+    message = models.TextField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'Chat Message'
+        verbose_name_plural = 'Chat Messages'

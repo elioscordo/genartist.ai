@@ -3,43 +3,88 @@ from django.contrib import admin
 from httpcore import request
 from unfold.admin import ModelAdmin
 from django.conf import settings
-from agent.models import Agent, AgentProfile
 from task.models import Task
 from django.urls import path
-from .models import Character, Scene, Action, Background, Style, Prop, ComicAction, VideoItem, VideoAction, SceneVideo, Story, StoryProfile, VoiceAction
+from .models import Character, Scene, Action, Background, StoryGroup, Style, Prop, ComicAction, VideoItem, VideoAction, SceneVideo, Story, StoryProfile, VoiceAction
 from django.utils.html import format_html
-from .mixins import ACTION_FIELDSETS, ImgShowMixin
+from .mixins import ACTION_FIELDSETS, ImgShowMixin, SceneFilterMixin, StaffReadOnlyMixin, StoryFilterMixin, ViewYourOwnMixin
 from unfold.sections import TableSection, render_to_string
 from rangefilter.filters import NumericRangeFilter
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 DEFAULT_IMAGE_AGENT_NAME = "DIGA"
+from django.apps import apps
 
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
 from django.contrib.auth.models import User, Group
 
-from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
-from unfold.admin import ModelAdmin
-from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
-from unfold.admin import ModelAdmin
+class AjaxSectionAdminMixin:
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'ajax-section-update/',
+                self.admin_site.admin_view(self.ajax_section_update_view),
+                name='ajax_section_update',
+            ),
+        ]
+        return custom_urls + urls
+
+    def ajax_section_update_view(self, request):
+        if request.method != "POST":
+            return JsonResponse({"error": "Method not allowed"}, status=405)
+        
+        model_label = request.POST.get("_model_label")
+        object_id = request.POST.get("_id")
+        field_name = request.POST.get("_field")
+        value = request.POST.get("_value")
+
+        try:
+            model = apps.get_model(model_label)
+            obj = get_object_or_404(model, pk=object_id)
+            
+            # Basic validation: ensure the field exists
+            if not hasattr(obj, field_name):
+                return JsonResponse({"error": f"Invalid field: {field_name}"}, status=400)
+
+            # Handle boolean conversion for checkboxes/switches if needed
+            if value.lower() in ['true', 'on']: value = True
+            elif value.lower() in ['false', 'off']: value = False
+
+            setattr(obj, field_name, value)
+            obj.save()
+            return JsonResponse({"status": "success"})
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+class AjaxTableSection(TableSection):
+    list_editable = []
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Dynamically create methods for fields in list_editable if they don't exist
+        for field_name in self.list_editable:
+            if not hasattr(self, field_name):
+                setattr(self, field_name, self._create_ajax_callback(field_name))
+
+    def _create_ajax_callback(self, field_name):
+        def render_field(obj):
+            val = getattr(obj, field_name) or ""
+            model_label = f"{obj._meta.app_label}.{obj._meta.model_name}"
+            return format_html(
+                '<div class="ajax-section-wrapper relative">'
+                '<input type="text" value="{}" '
+                'class="section-ajax-input w-full bg-transparent border-b border-gray-300 focus:border-primary-500 outline-none transition-colors py-1" '
+                'data-id="{}" data-model="{}" data-field="{}" />'
+                '<span class="ajax-status-indicator absolute right-0 top-1 text-[10px] hidden"></span>'
+                '</div>',
+                val, obj.pk, model_label, field_name
+            )
+        render_field.short_description = field_name.replace("_", " ").capitalize()
+        return render_field
 
 
-admin.site.unregister(User)
-admin.site.unregister(Group)
-
-
-@admin.register(User)
-class UserAdmin(BaseUserAdmin, ModelAdmin):
-    # Forms loaded from `unfold.forms`
-    form = UserChangeForm
-    add_form = UserCreationForm
-    change_password_form = AdminPasswordChangeForm
-
-
-@admin.register(Group)
-class GroupAdmin(BaseGroupAdmin, ModelAdmin):
-    pass
 
 @admin.action(description="Add to comic video")
 def comic_to_video(modeladmin, request, queryset):
@@ -211,39 +256,6 @@ class AjaxTaskModelAdmin(ModelAdmin):
             if Task.createTaskIfQueueEnabled( obj, settings.TASK_TYPE_GENERATE_VOICE, owner=request.user) is None:
                 obj.generate_voice(obj.PRESET_VOICE, request.user)
         return JsonResponse({'status': 'success'})
-
-
-class StoryFilter:
-    def get_scene_ids_for_user(self, user):
-        scene_ids = []
-        if user.story_profile:
-            for story_user in user.story_users.all():
-                for story in Story.objects.filter(id=story_user.story.id):
-                    scenes = story.scenes.all()
-                    for scene in scenes:
-                        scene_ids.append(scene.id)
-        return scene_ids
-    
-    def get_prop_ids_for_user(self, user):
-        prop_ids = []
-        if user.story_users.count() >= 0:
-            for story_user in user.story_users.all():
-                for story in Story.objects.filter(id=story_user.story.id):
-                    props = story.props.all()
-                    for prop in props:
-                        prop_ids.append(prop.id)
-        return prop_ids
-    
-    def get_character_ids_for_user(self, user):
-        character_ids = []
-        if user.story_users.count() >= 0:
-            for story_user in user.story_users.all():
-                for story in Story.objects.filter(id=story_user.story.id):
-                    characters = story.characters.all()
-                    for character in characters:
-                        character_ids.append(character.id)
-        return character_ids
-    
     
 @admin.register(Story)
 class StoryAdmin(ModelAdmin):
@@ -251,46 +263,49 @@ class StoryAdmin(ModelAdmin):
     list_display_links = ('name',)
     search_fields = ['name']
 
-
-
-@admin.register(StoryProfile)
-class StoryProfileAdmin(ModelAdmin):
-    list_display = ('id', 'user', 'story')
-    list_editable = ('user', 'story')
+@admin.register(StoryGroup)
+class StoryGroupAdmin(ModelAdmin):
+    list_display = ('id', 'name', 'story')
+    list_editable = ('name', 'story')
     list_display_links = ('id',)
     autocomplete_fields = ['story']
-    
+    search_fields = ['name']
 
+@admin.register(StoryProfile)
+class StoryProfileAdmin(ViewYourOwnMixin, StaffReadOnlyMixin, ModelAdmin):
+    list_display = ('id', 'user','group', 'story', 'scene' )
+    list_display_links = ('id',)
+    autocomplete_fields = ['story', 'group', 'user', 'scene']
+    staff_readonly_fields = ['user']
+    
 @admin.register(Style)
 class StyleAdmin(ModelAdmin):
     list_display = ('id','name', 'prompt')
     list_editable = ('name', 'prompt')
     list_display_links = ('id',)
     actions = [clone]
-    search_fields = ['name']    
-
+    search_fields = ['name']
 
 @admin.register(Character)
-class CharacterAdmin(AjaxTaskModelAdmin, ImgShowMixin):
+class CharacterAdmin(StoryFilterMixin, AjaxTaskModelAdmin, ImgShowMixin,):
     list_display = ('name', 'pic', 'prompt', 'prompt_refine', 'last_tasks')
     list_editable = ('prompt', 'prompt_refine')
     list_display_links = ('name',)
     autocomplete_fields = ['story']
     actions = [clone, default_generate_image, default_refine_image]
     search_fields = ['name']
-    
 
 @admin.register(Background)
-class BackgroundAdmin(AjaxTaskModelAdmin, ImgShowMixin):
+class BackgroundAdmin(StoryFilterMixin, AjaxTaskModelAdmin, ImgShowMixin):
     list_display = ('name', 'pic', 'prompt', 'prompt_refine', 'last_tasks')
     list_editable = ('prompt','prompt_refine')
+    list_display_links = ('name',)
     autocomplete_fields = ['story']
-    list_display_links = ('id',)
     actions = [clone, default_generate_image, default_refine_image]
     search_fields = ['name']
 
 @admin.register(Prop)
-class PropAdmin(AjaxTaskModelAdmin, ImgShowMixin):
+class PropAdmin(StoryFilterMixin, AjaxTaskModelAdmin, ImgShowMixin):
     search_fields = ['name']
     list_display = ('name', 'pic', 'prompt','prompt_refine', 'last_tasks')
     list_display_links = ('name',)
@@ -301,28 +316,16 @@ class PropAdmin(AjaxTaskModelAdmin, ImgShowMixin):
 
 
 @admin.register(Scene)
-class SceneAdmin(ModelAdmin, ImgShowMixin):
+class SceneAdmin(StoryFilterMixin, ModelAdmin, ImgShowMixin):
     search_fields = ['name']
     list_display = ('name', 'story')
     list_display_links = ('name',)
     autocomplete_fields = ['story',]
     actions = [clone]
-    
-    def save_model(self, request, obj, form, change):
-        story_user =  request.user.story_users.first()
-        story = story_user.story
-        if self.story is None:
-            obj.story = story 
-        save_obj = super().save_model(request, obj, form, change)
-        return save_obj
-
-    def get_queryset(self, request):
-        qs = super(SceneAdmin, self).get_queryset(request) #call original queryset method that you are overriding
-        return qs
 
 
 @admin.register(Action)
-class ActionAdmin(AjaxTaskModelAdmin, ImgShowMixin):
+class ActionAdmin(SceneFilterMixin, AjaxTaskModelAdmin, ImgShowMixin):
     list_display = ('id', 'pic', 'prompt','prompt_refine', 'last_tasks')
     list_editable = ( 'prompt', 'prompt_refine')
     list_filter = ["scene", "order"]
@@ -331,17 +334,11 @@ class ActionAdmin(AjaxTaskModelAdmin, ImgShowMixin):
     list_display_links = ('id',)
     autocomplete_fields = ['actor', 'props', 'extras', 'background', 'consistent_with', 'scene']
     search_fields = ['name']
-    
     actions = [clone, default_generate_image, default_refine_image]
     fieldsets = ACTION_FIELDSETS
 
-    def get_queryset(self, request):
-        qs = super(ActionAdmin, self).get_queryset(request) #call original queryset method that you are overriding
-        return qs
-
-
 @admin.register(VideoAction)
-class VideoActionAdmin(AjaxTaskModelAdmin, ImgShowMixin):
+class VideoActionAdmin(SceneFilterMixin, AjaxTaskModelAdmin, ImgShowMixin):
     list_display = ('name', 'pic', 'prompt_video', 'video_player','last_tasks')
     list_editable = ['prompt_video']
     list_filter = ["scene"]
@@ -352,7 +349,7 @@ class VideoActionAdmin(AjaxTaskModelAdmin, ImgShowMixin):
 
 
 @admin.register(ComicAction)
-class ComicActionAdmin(AjaxTaskModelAdmin, ImgShowMixin):
+class ComicActionAdmin(SceneFilterMixin, AjaxTaskModelAdmin, ImgShowMixin):
     list_display = ('name', 'pic', 'pic_comic', 'prompt_comic', 'last_tasks')
     list_editable = ['prompt_comic']
     list_filter = ["scene"]
@@ -365,9 +362,8 @@ class ComicActionAdmin(AjaxTaskModelAdmin, ImgShowMixin):
     fieldsets = ACTION_FIELDSETS
 
 
-
 @admin.register(VoiceAction)
-class VoiceActionAdmin(AjaxTaskModelAdmin, ImgShowMixin):
+class VoiceActionAdmin(SceneFilterMixin, AjaxTaskModelAdmin, ImgShowMixin):
     list_display = ('name', 'pic', 'prompt_voice','prompt_comic',  'voice_player', 'last_tasks')
     list_editable = ['prompt_voice', 'prompt_comic']
     list_filter = ["scene"]
@@ -378,8 +374,6 @@ class VoiceActionAdmin(AjaxTaskModelAdmin, ImgShowMixin):
     search_fields = ['name']
     actions = [generate_voice]
     fieldsets = ACTION_FIELDSETS
-
-
 
 @admin.register(VideoItem)
 class VideoItemAdmin(ModelAdmin, ImgShowMixin):
