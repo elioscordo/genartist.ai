@@ -1,4 +1,4 @@
-# genartist.ai
+# guillermo
 Collaborative ai cinema platform
 
 ## Google Voices
