@@ -14,7 +14,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 from django.urls import reverse_lazy
-from httpcore import request
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(dotenv_path=os.path.join(BASE_DIR, '.env'))
@@ -93,7 +92,7 @@ def agentprofile(request):
     try:
         return f"/admin/agent/agentprofile/{request.user.story_profile.id}/change/?next=/admin/scene/story/"
     except:
-         return "/admin/agent/agentprofile/"
+        return "/admin/"
 def token_usage_link(request):
     return "/admin/agent/tokenusage/"
 
@@ -111,6 +110,7 @@ UNFOLD = {
     "SITE_SUBHEADER": "Tell me a story",
     "STYLES": [
         lambda request: static("css/unfold_filer_custom.css"),
+        lambda request: static("css/custom.css"),
     ],
     "ACCOUNT": {
         "navigation": [
@@ -135,9 +135,31 @@ UNFOLD = {
         
         "navigation": [
             {
-                "title": "Elements",
+                "title": "Cowriting",
                 "separator": True,
                 "items": [
+                    {
+                        "title": "Themes",
+                        "icon": "dashboard",
+                        "link": reverse_lazy("admin:brainstorm_theme_changelist"),
+                    },
+                    {
+                        "title": "Sessions",
+                        "icon": "dashboard",
+                        "link": reverse_lazy("admin:brainstorm_session_changelist"),
+                    }
+
+                ],
+            },
+            {
+                "title": "Storytelling",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Stories",
+                        "icon": "dashboard",
+                        "link": reverse_lazy("admin:scene_story_changelist"),
+                    },
                     {
                         "title": "Elements",
                         "icon": "dashboard",
@@ -153,23 +175,12 @@ UNFOLD = {
                         "icon": "dashboard",
                         "link": reverse_lazy("admin:scene_background_changelist"),
                     },
-
-                ],
-            },
-            {
-                "title": "Storytelling",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Stories",
-                        "icon": "dashboard",
-                        "link": reverse_lazy("admin:scene_story_changelist"),
-                    },
                     {
                         "title": "Scenes",
                         "icon": "dashboard",
                         "link": reverse_lazy("admin:scene_scene_changelist"),
                     },
+
                     {
                         "title": "Actions",
                         "icon": "dashboard",
