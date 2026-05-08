@@ -13,3 +13,4 @@ sqlalchemy
 django-modeladmin-reorder
 django-unfold
 django-allauth
+markdown-it-py==4.0.0
