@@ -19,6 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=os.path.join(BASE_DIR, '.env'))
 GOOGLE_GENAI_VERTEX_API_KEY= os.getenv("GOOGLE_GENAI_VERTEX_API_KEY")
 
+DEBUG=True
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 MEDIA_ROOT = os.path.join( BASE_DIR , 'media' )
@@ -54,8 +55,7 @@ INSTALLED_APPS = [
     'scene.apps.SceneConfig',
     'agent.apps.AgentConfig',
     'task',
-    'rangefilter',
-    'game'
+    'brainstorm'
 ]
 
 MIDDLEWARE = [
@@ -329,9 +329,5 @@ import os
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-
-DEBUG = False
-
-ALLOWED_HOSTS = ['178.238.234.86']
 
 
